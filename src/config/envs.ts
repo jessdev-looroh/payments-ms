@@ -7,6 +7,11 @@ interface EnvVars {
   STRIPE_ENDPOINT_SECRET: string;
   STRIPE_SUCCESS_URL: string;
   STRIPE_CANCEL_URL: string;
+  NATS_SERVERS: string;
+  AWS_REGION: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
+  AWS_S3_BUCKET_NAME?: string;
 }
 
 const envSchema = joi
@@ -16,6 +21,11 @@ const envSchema = joi
     STRIPE_ENDPOINT_SECRET: joi.string().required(),
     STRIPE_SUCCESS_URL: joi.string().required(),
     STRIPE_CANCEL_URL: joi.string().required(),
+    NATS_SERVERS: joi.string().required(),
+    AWS_REGION: joi.string().required(),
+    AWS_ACCESS_KEY_ID: joi.string().required(),
+    AWS_SECRET_ACCESS_KEY: joi.string().required(),
+    AWS_S3_BUCKET_NAME: joi.string().optional(),
   })
   .unknown(true);
 
@@ -33,6 +43,9 @@ export const envs = {
   stripeEndpointSecret: envVars.STRIPE_ENDPOINT_SECRET,
   stripeSuccessUrl: envVars.STRIPE_SUCCESS_URL,
   stripeCancelUrl: envVars.STRIPE_CANCEL_URL,
+  natsServers: envVars.NATS_SERVERS,
+  awsRegion: envVars.AWS_REGION,
+  awsAccessKeyId: envVars.AWS_ACCESS_KEY_ID,
+  awsSecretAccessKey: envVars.AWS_SECRET_ACCESS_KEY,
+  awsS3BucketName: envVars.AWS_S3_BUCKET_NAME,
 };
-
-
