@@ -3,18 +3,18 @@ import {
   Inject,
   Injectable,
   Logger,
-  OnModuleInit,
 } from '@nestjs/common';
 import { envs, NATS_SERVICE } from 'src/config';
 import Stripe from 'stripe';
 import { PaymentSessionDto } from './dto/payment-session.dto';
-import { Request, Response } from 'express';
 import { WebhookDataDto } from './dto/webhook-data.dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { SessionResponse } from 'src/interfaces/session-response.interface';
 import { PaymentSucceededPayload } from 'src/interfaces/payment-succeeded-payload.interface';
 import { PaymentAuditService } from '../payment-audit/payment-audit.service';
 import { PaymentAuditData } from '../payment-audit/interfaces/payment-audit-data.interface';
+import { PaymentSessionItemDto } from './dto/payment-session-item.dto';
+import { PaymentSessionItem } from './interfaces/payment-session-item.interface';
 
 @Injectable()
 export class PaymentsService {
@@ -29,6 +29,7 @@ export class PaymentsService {
   async createPaymentSession(paymentSessionDto: PaymentSessionDto) {
     const startTime = Date.now();
     const { currency, items, orderId } = paymentSessionDto;
+    const allItems = this.flattenOrderItems(items);
 
     const payload: Stripe.Checkout.SessionCreateParams = {
       payment_intent_data: {
@@ -36,7 +37,7 @@ export class PaymentsService {
           orderId,
         },
       },
-      line_items: items.map((item) => ({
+      line_items: allItems.map((item) => ({
         price_data: {
           currency,
           product_data: { name: item.name },
@@ -104,6 +105,32 @@ export class PaymentsService {
     }
   }
 
+  private flattenOrderItems(orderItems: PaymentSessionItemDto[]): PaymentSessionItem[] {
+    const result: PaymentSessionItem[] = [];
+
+    const recurse = (items: any[]) => {
+      for (const item of items) {
+        const itemName = item.sizeName
+          ? `${item.name} - [${item.sizeName}]`
+          : item.name;
+
+        result.push({
+
+          name: itemName,
+          price: item.price,
+          quantity: item.quantity,
+        });
+
+        if (item.childItems && item.childItems.length > 0) {
+          recurse(item.childItems);
+        }
+      }
+    };
+
+    recurse(orderItems);
+    return result;
+  }
+
   /**
    * Processes Stripe webhook events
    * @param requestData - Webhook data containing base64 encoded rawBody and signature
@@ -134,13 +161,13 @@ export class PaymentsService {
           const chargeSucceeded = event.data.object;
           orderId = chargeSucceeded.metadata.orderId;
           transactionId = chargeSucceeded.id;
-          
+
           const payload: PaymentSucceededPayload = {
             orderId,
             receiptUrl: chargeSucceeded.receipt_url ?? '',
             paymentChargeId: transactionId,
           };
-          
+
           this.logger.log('Payment succeeded:', payload);
           this.client.emit('payment.succeeded', payload);
           break;
