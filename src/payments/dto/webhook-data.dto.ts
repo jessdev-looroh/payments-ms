@@ -1,15 +1,21 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsNotEmpty } from 'class-validator';
 
 /**
- * DTO for webhook data containing raw body and stripe signature
- * The rawBody is sent as base64 string to preserve Buffer data through NATS serialization
+ * DTO representing the structure of webhook data received from providers.
  */
 export class WebhookDataDto {
-  @IsNotEmpty()
   @IsString()
-  rawBody: string; // Base64 encoded string of the original Buffer
+  rawBody: string;
 
   @IsString()
   @IsNotEmpty()
-  stripeSignature: string;
+  paymentMethodId: string;
+
+  @IsOptional()
+  @IsString()
+  stripeSignature?: string;
+
+  @IsOptional()
+  @IsObject()
+  headers?: Record<string, string>;
 }

@@ -17,6 +17,6 @@ import { S3AuditStrategy } from './strategies/s3-audit-strategy';
     DynamoDBAuditStrategy,
     S3AuditStrategy,
   ],
-  exports: [PaymentAuditService],
+  exports: [PaymentAuditService, DynamoDBAuditStrategy, S3AuditStrategy],
 })
 export class PaymentAuditModule {}

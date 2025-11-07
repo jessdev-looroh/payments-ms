@@ -12,6 +12,9 @@ interface EnvVars {
   AWS_ACCESS_KEY_ID: string;
   AWS_SECRET_ACCESS_KEY: string;
   AWS_S3_BUCKET_NAME?: string;
+  CRYPTO_MASTER_KEY: string;
+  CRYPTO_ALGORITHM: string;
+  PAYMENT_CONFIG_TABLE: string;
 }
 
 const envSchema = joi
@@ -26,6 +29,9 @@ const envSchema = joi
     AWS_ACCESS_KEY_ID: joi.string().required(),
     AWS_SECRET_ACCESS_KEY: joi.string().required(),
     AWS_S3_BUCKET_NAME: joi.string().optional(),
+    CRYPTO_MASTER_KEY: joi.string().optional(),
+    CRYPTO_ALGORITHM: joi.string().optional(),
+    PAYMENT_CONFIG_TABLE: joi.string().optional(),
   })
   .unknown(true);
 
@@ -48,4 +54,7 @@ export const envs = {
   awsAccessKeyId: envVars.AWS_ACCESS_KEY_ID,
   awsSecretAccessKey: envVars.AWS_SECRET_ACCESS_KEY,
   awsS3BucketName: envVars.AWS_S3_BUCKET_NAME,
+  cryptoAlgorithm: envVars.CRYPTO_ALGORITHM,
+  cryptoMasterKey: envVars.CRYPTO_MASTER_KEY,
+  paymentConfigTable: envVars.PAYMENT_CONFIG_TABLE,
 };

@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
-import { marshall } from '@aws-sdk/util-dynamodb';
+import {
+  DynamoDBClient,
+  GetItemCommand,
+  PutItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { envs } from 'src/config';
 
 /**
  * DynamoDB Service
- * 
+ *
  * This service handles all DynamoDB operations for the payment audit system.
  * It provides methods for storing and retrieving payment audit data.
  */
@@ -26,8 +30,17 @@ export class DynamoDBService {
   }
 
   /**
+   * Gets the DynamoDB client instance
+   *
+   * @returns DynamoDBClient - The DynamoDB client instance
+   */
+  getClient(): DynamoDBClient {
+    return this.dynamoClient;
+  }
+
+  /**
    * Stores payment audit data in DynamoDB
-   * 
+   *
    * @param tableName - The name of the DynamoDB table
    * @param item - The item to store in DynamoDB
    * @returns Promise<boolean> - Returns true if successful, false otherwise
@@ -56,12 +69,27 @@ export class DynamoDBService {
     }
   }
 
-  /**
-   * Gets the DynamoDB client instance
-   * 
-   * @returns DynamoDBClient - The DynamoDB client instance
-   */
-  getClient(): DynamoDBClient {
-    return this.dynamoClient;
+  async getItem<T = any>(
+    tableName: string,
+    key: Record<string, any>,
+  ): Promise<T | null> {
+    try {
+      const command = new GetItemCommand({
+        TableName: tableName,
+        Key: marshall(key),
+      });
+      this.logger.debug({
+        TableName: tableName,
+        Key: marshall(key),
+      });
+      const { Item } = await this.dynamoClient.send(command);     
+      
+      if (!Item) return null;
+      return unmarshall(Item) as T;
+    } catch (error) {
+      console.log({error});
+      this.logger.error(`Failed to get item from DynamoDB: ${error.message}`);
+      return null;
+    }
   }
 }

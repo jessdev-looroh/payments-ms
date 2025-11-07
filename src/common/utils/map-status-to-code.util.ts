@@ -1,0 +1,76 @@
+import { StatusTextEnum } from '../enums';
+
+/**
+ * Maps all HTTP status codes to their official string identifiers.
+ *
+ * @param exception Instance of HttpException to extract the status code from.
+ * @returns {string} The corresponding status code string.
+ */
+export const mapStatusToCode = (status: number): StatusTextEnum => {
+  const statusCodeMap: Record<number, StatusTextEnum> = {
+    100: StatusTextEnum['CONTINUE'],
+    101: StatusTextEnum['SWITCHING_PROTOCOLS'],
+    102: StatusTextEnum['PROCESSING'],
+    103: StatusTextEnum['EARLY_HINTS'],
+    200: StatusTextEnum['OK'],
+    201: StatusTextEnum['CREATED'],
+    202: StatusTextEnum['ACCEPTED'],
+    203: StatusTextEnum['NON_AUTHORITATIVE_INFORMATION'],
+    204: StatusTextEnum['NO_CONTENT'],
+    205: StatusTextEnum['RESET_CONTENT'],
+    206: StatusTextEnum['PARTIAL_CONTENT'],
+    207: StatusTextEnum['MULTI_STATUS'],
+    208: StatusTextEnum['ALREADY_REPORTED'],
+    226: StatusTextEnum['IM_USED'],
+    300: StatusTextEnum['MULTIPLE_CHOICES'],
+    301: StatusTextEnum['MOVED_PERMANENTLY'],
+    302: StatusTextEnum['FOUND'],
+    303: StatusTextEnum['SEE_OTHER'],
+    304: StatusTextEnum['NOT_MODIFIED'],
+    305: StatusTextEnum['USE_PROXY'],
+    307: StatusTextEnum['TEMPORARY_REDIRECT'],
+    308: StatusTextEnum['PERMANENT_REDIRECT'],
+    400: StatusTextEnum['BAD_REQUEST'],
+    401: StatusTextEnum['UNAUTHORIZED'],
+    402: StatusTextEnum['PAYMENT_REQUIRED'],
+    403: StatusTextEnum['FORBIDDEN'],
+    404: StatusTextEnum['NOT_FOUND'],
+    405: StatusTextEnum['METHOD_NOT_ALLOWED'],
+    406: StatusTextEnum['NOT_ACCEPTABLE'],
+    407: StatusTextEnum['PROXY_AUTHENTICATION_REQUIRED'],
+    408: StatusTextEnum['REQUEST_TIMEOUT'],
+    409: StatusTextEnum['CONFLICT'],
+    410: StatusTextEnum['GONE'],
+    411: StatusTextEnum['LENGTH_REQUIRED'],
+    412: StatusTextEnum['PRECONDITION_FAILED'],
+    413: StatusTextEnum['PAYLOAD_TOO_LARGE'],
+    414: StatusTextEnum['URI_TOO_LONG'],
+    415: StatusTextEnum['UNSUPPORTED_MEDIA_TYPE'],
+    416: StatusTextEnum['RANGE_NOT_SATISFIABLE'],
+    417: StatusTextEnum['EXPECTATION_FAILED'],
+    418: StatusTextEnum['IM_A_TEAPOT'],
+    421: StatusTextEnum['MISDIRECTED_REQUEST'],
+    422: StatusTextEnum['UNPROCESSABLE_ENTITY'],
+    423: StatusTextEnum['LOCKED'],
+    424: StatusTextEnum['FAILED_DEPENDENCY'],
+    425: StatusTextEnum['TOO_EARLY'],
+    426: StatusTextEnum['UPGRADE_REQUIRED'],
+    428: StatusTextEnum['PRECONDITION_REQUIRED'],
+    429: StatusTextEnum['TOO_MANY_REQUESTS'],
+    431: StatusTextEnum['REQUEST_HEADER_FIELDS_TOO_LARGE'],
+    451: StatusTextEnum['UNAVAILABLE_FOR_LEGAL_REASONS'],
+    500: StatusTextEnum['INTERNAL'],
+    501: StatusTextEnum['NOT_IMPLEMENTED'],
+    502: StatusTextEnum['BAD_GATEWAY'],
+    503: StatusTextEnum['SERVICE_UNAVAILABLE'],
+    504: StatusTextEnum['GATEWAY_TIMEOUT'],
+    505: StatusTextEnum['HTTP_VERSION_NOT_SUPPORTED'],
+    506: StatusTextEnum['VARIANT_ALSO_NEGOTIATES'],
+    507: StatusTextEnum['INSUFFICIENT_STORAGE'],
+    508: StatusTextEnum['LOOP_DETECTED'],
+    510: StatusTextEnum['NOT_EXTENDED'],
+    511: StatusTextEnum['NETWORK_AUTHENTICATION_REQUIRED'],
+  };
+
+  return statusCodeMap[status] ?? StatusTextEnum['INTERNAL_SERVER_ERROR'];
+};

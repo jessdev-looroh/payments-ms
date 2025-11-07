@@ -1,0 +1,30 @@
+# Etapa 1: Instala todas las dependencias (usa cache)
+FROM node:24-alpine3.22 AS deps
+WORKDIR /usr/src/app
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+
+# Etapa 2: Build
+FROM node:24-alpine3.22 AS build
+WORKDIR /usr/src/app
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+COPY . .
+RUN yarn run build
+
+# Etapa 3: Producción (solo dependencias necesarias)
+FROM node:24-alpine3.22 AS prod
+WORKDIR /usr/src/app
+
+# Copiar solo los archivos mínimos para la app final
+COPY package.json yarn.lock ./
+RUN yarn install --production --frozen-lockfile && yarn cache clean
+
+# Copiar el código compilado
+COPY --from=build /usr/src/app/dist ./dist
+
+ENV NODE_ENV=production
+USER node
+EXPOSE 3000
+
+CMD ["node", "dist/main.js"]
+# Crear la imagen final de docker

@@ -1,5 +1,5 @@
 import { Controller, Logger, BadRequestException } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
+import { PaymentsService } from './services/payments.service';
 import { PaymentSessionDto } from './dto/payment-session.dto';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { WebhookDataDto } from './dto/webhook-data.dto';
@@ -56,8 +56,8 @@ export class PaymentsController {
   @MessagePattern('payments.stripe.webhook')
   stripeWebhook(@Payload() requestData: WebhookDataDto) {
     this.logger.log(
-      `Processing Stripe webhook with signature: ${requestData.stripeSignature.substring(0, 20)}...`,
+      `Processing Stripe webhook with signature: ${requestData.stripeSignature?.substring(0, 20)}...`,
     );
-    return this.paymentsService.stripeWebhook(requestData);
+    return this.paymentsService.handleWebhook(requestData);
   }
 }

@@ -1,128 +1,79 @@
-import {
-  HttpStatus,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { envs, NATS_SERVICE } from 'src/config';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
-import { PaymentSessionDto } from './dto/payment-session.dto';
-import { WebhookDataDto } from './dto/webhook-data.dto';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { SessionResponse } from 'src/interfaces/session-response.interface';
+import { PaymentProvider } from './payment-provider.interface';
+import { PaymentMethodConfig } from '../interfaces/payment-method-config.interface';
+import { PaymentSessionDto } from '../dto/payment-session.dto';
+import { WebhookDataDto } from '../dto/webhook-data.dto';
+import { PaymentSessionItemDto } from '../dto/payment-session-item.dto';
+import { PaymentSessionItem } from '../interfaces/payment-session-item.interface';
+import { envs, NATS_SERVICE } from 'src/config';
 import { PaymentSucceededPayload } from 'src/interfaces/payment-succeeded-payload.interface';
-import { PaymentAuditService } from '../payment-audit/payment-audit.service';
-import { PaymentAuditData } from '../payment-audit/interfaces/payment-audit-data.interface';
-import { PaymentSessionItemDto } from './dto/payment-session-item.dto';
-import { PaymentSessionItem } from './interfaces/payment-session-item.interface';
+import { PaymentAuditData } from 'src/payment-audit/interfaces/payment-audit-data.interface';
+import { PaymentAuditService } from 'src/payment-audit/payment-audit.service';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 
 @Injectable()
-export class PaymentsService {
-  private readonly stripe = new Stripe(envs.stripeSecret);
-  private readonly logger = new Logger(PaymentsService.name);
+export class StripeProvider implements PaymentProvider {
+  private paymentMethodConfig: PaymentMethodConfig;
+  private stripe: Stripe;
+  private readonly logger = new Logger(StripeProvider.name);
+
   constructor(
     @Inject(NATS_SERVICE)
     private readonly client: ClientProxy,
     private readonly paymentAuditService: PaymentAuditService,
   ) {}
+  initialize(paymentMethodConfig: PaymentMethodConfig) {
+    this.paymentMethodConfig = paymentMethodConfig;
+    this.stripe = new Stripe(paymentMethodConfig.credentials.secretKey ?? '');
+  }
 
   async createPaymentSession(paymentSessionDto: PaymentSessionDto) {
-    const startTime = Date.now();
-    const { currency, items, orderId } = paymentSessionDto;
+    const { orderId, currency, items, paymentMethodId } = paymentSessionDto;
     const allItems = this.flattenOrderItems(items);
-
-    const payload: Stripe.Checkout.SessionCreateParams = {
-      payment_intent_data: {
-        metadata: {
-          orderId,
-        },
-      },
+    const session = await this.stripe.checkout.sessions.create({
+      payment_intent_data: { metadata: { orderId, paymentMethodId } },
       line_items: allItems.map((item) => ({
         price_data: {
-          currency,
+          currency:
+            currency?.toUpperCase() ??
+            this.paymentMethodConfig.currency.toUpperCase(),
           product_data: { name: item.name },
           unit_amount: Math.round(item.price * 100),
         },
         quantity: item.quantity,
       })),
       mode: 'payment',
-      success_url: envs.stripeSuccessUrl,
-      cancel_url: envs.stripeCancelUrl,
+      success_url: process.env.STRIPE_SUCCESS_URL!,
+      cancel_url: process.env.STRIPE_CANCEL_URL!,
+    });
+
+    return {
+      url: session.url,
+      successUrl: session.success_url,
+      cancelUrl: session.cancel_url,
     };
-    try {
-      const session = await this.stripe.checkout.sessions.create(payload);
-
-      const durationMs = Date.now() - startTime;
-
-      // Log audit data
-      const auditData: PaymentAuditData = {
-        transactionId: session.id,
-        orderId,
-        provider: 'stripe',
-        endpoint: '/checkout/sessions',
-        method: 'POST',
-        statusCode: 200,
-        status: 'success',
-        durationMs,
-        requestBody: payload,
-        responseBody: session,
-      };
-
-      // Audit the transaction (non-blocking)
-      this.paymentAuditService.logTransaction(auditData).catch((error) => {
-        this.logger.error(`Audit logging failed: ${error.message}`);
-      });
-
-      const sessionResponse: SessionResponse = {
-        cancelUrl: session.cancel_url ?? '',
-        successUrl: session.success_url ?? '',
-        url: session.url ?? '',
-      };
-      return sessionResponse;
-    } catch (error) {
-      const durationMs = Date.now() - startTime;
-
-      // Log audit data for failed transaction
-      const auditData: PaymentAuditData = {
-        transactionId: `ERROR#${orderId}-${new Date().toISOString()}`,
-        orderId,
-        provider: 'stripe',
-        endpoint: '/checkout/sessions',
-        method: 'POST',
-        statusCode: 500,
-        status: 'error',
-        durationMs,
-        requestBody: payload,
-        responseBody: { error: error.message },
-      };
-
-      // Audit the failed transaction (non-blocking)
-      this.paymentAuditService.logTransaction(auditData).catch((auditError) => {
-        this.logger.error(`Audit logging failed: ${auditError.message}`);
-      });
-
-      throw error;
-    }
   }
 
-  private flattenOrderItems(orderItems: PaymentSessionItemDto[]): PaymentSessionItem[] {
+  private flattenOrderItems(
+    orderItems: PaymentSessionItemDto[],
+  ): PaymentSessionItem[] {
     const result: PaymentSessionItem[] = [];
 
-    const recurse = (items: any[]) => {
+    const recurse = (items: any[], parentQuantity: number = 1) => {
       for (const item of items) {
         const itemName = item.sizeName
           ? `${item.name} - [${item.sizeName}]`
           : item.name;
 
         result.push({
-
           name: itemName,
           price: item.price,
-          quantity: item.quantity,
+          quantity: item.quantity * parentQuantity,
         });
 
         if (item.childItems && item.childItems.length > 0) {
-          recurse(item.childItems);
+          recurse(item.childItems, item.quantity);
         }
       }
     };
@@ -131,23 +82,19 @@ export class PaymentsService {
     return result;
   }
 
-  /**
-   * Processes Stripe webhook events
-   * @param requestData - Webhook data containing base64 encoded rawBody and signature
-   * @returns Promise with webhook processing result
-   */
-  stripeWebhook(requestData: WebhookDataDto) {
+  async handleWebhook(requestData: WebhookDataDto) {
     const startTime = Date.now();
 
     try {
       const rawBodyBuffer = Buffer.from(requestData.rawBody, 'base64');
       const sig = requestData.stripeSignature;
-      const endpointSecret = envs.stripeEndpointSecret;
+      const endpointSecret =
+        this.paymentMethodConfig.credentials.endpointSecret;
 
       let event: Stripe.Event;
       event = this.stripe.webhooks.constructEvent(
         rawBodyBuffer,
-        sig,
+        sig ?? '',
         endpointSecret,
       );
 
