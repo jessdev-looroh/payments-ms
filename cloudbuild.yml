@@ -1,0 +1,20 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "southamerica-east1-docker.pkg.dev/qehay-ms/qehay-image-register/payments-ms-dev",
+        "-f",
+        "dockerfile.dev",
+        "--platform=linux/amd64",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "southamerica-east1-docker.pkg.dev/qehay-ms/qehay-image-register/payments-ms-dev",
+      ]
+options:
+  logging: CLOUD_LOGGING_ONLY
